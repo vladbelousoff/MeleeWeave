@@ -1,0 +1,8 @@
+## Interface: 20504
+## Title: MeleeWeave
+## Notes: Melee-weave range scale for Hunters (TBC Classic). Shows how far the target is and when to weave.
+## Author: Vlad
+## Version: 1.0
+## SavedVariables: MeleeWeaveDB
+
+MeleeWeave.lua
