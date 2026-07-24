@@ -1,0 +1,109 @@
+name: Package releases
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version used in archive names and TOC metadata
+        required: true
+        default: dev
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Select version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_NAME: ${{ github.ref_name }}
+          MANUAL_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "value=$MANUAL_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build flavor archives
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$PACKAGE_VERSION" || "$PACKAGE_VERSION" == *[!A-Za-z0-9._-]* ]]; then
+            echo "Invalid package version: $PACKAGE_VERSION" >&2
+            exit 1
+          fi
+
+          metadata_version="${PACKAGE_VERSION#v}"
+          mkdir -p dist
+
+          while read -r flavor source_toc; do
+            staging_root="$(mktemp -d)"
+            addon_directory="$staging_root/MeleeWeave"
+            archive_path="$GITHUB_WORKSPACE/dist/MeleeWeave-$PACKAGE_VERSION-$flavor.zip"
+
+            mkdir -p "$addon_directory"
+            cp MeleeWeave.lua README.md "$addon_directory/"
+            sed -E "s/^## Version:.*/## Version: $metadata_version/" \
+              "$source_toc" > "$addon_directory/MeleeWeave.toc"
+
+            (
+              cd "$staging_root"
+              zip -q -r "$archive_path" MeleeWeave
+            )
+
+            rm -rf -- "$staging_root"
+          done <<'FLAVORS'
+          retail MeleeWeave_Mainline.toc
+          mists MeleeWeave_Mists.toc
+          cataclysm MeleeWeave_Cata.toc
+          wrath MeleeWeave_Wrath.toc
+          tbc MeleeWeave_TBC.toc
+          classic-era MeleeWeave_Vanilla.toc
+          FLAVORS
+
+      - name: List archive contents
+        shell: bash
+        run: |
+          for archive in dist/*.zip; do
+            echo "::group::$archive"
+            unzip -l "$archive"
+            echo "::endgroup::"
+          done
+
+      - name: Store workflow artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: MeleeWeave-packages
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Create or update GitHub release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" dist/*.zip --clobber
+          else
+            gh release create "$TAG_NAME" dist/*.zip \
+              --verify-tag \
+              --generate-notes \
+              --title "$TAG_NAME"
+          fi
