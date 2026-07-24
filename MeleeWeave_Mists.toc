@@ -1,4 +1,4 @@
-## Interface: 20506
+## Interface: 50504, 50503
 ## Title: MeleeWeave
 ## Notes: Melee-weave range scale for Hunters. Shows how far the target is and when to weave.
 ## Author: vladbelousoff
