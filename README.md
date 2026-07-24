@@ -61,13 +61,3 @@ WoW only answers whether a unit is within particular ranges; it does not return
 an exact distance. The displayed value is therefore a bracket rather than an
 exact yard measurement. No available check can measure below 5 yards, so the
 green state is the important signal once the target is in melee range.
-
-## Building releases
-
-Pushing a tag beginning with `v` packages every supported WoW flavor in GitHub
-Actions and attaches the resulting ZIP files to a GitHub release:
-
-```bash
-git tag -a v1.1 -m "MeleeWeave v1.1"
-git push origin v1.1
-```
